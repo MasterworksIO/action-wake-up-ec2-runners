@@ -1,0 +1,60 @@
+{
+  "name": "action-wake-up-ec2-runners",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A Github Action to wake up AWS EC2 runners",
+  "main": "dist/main.js",
+  "engines": {
+    "node": "^12.13.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "format": "prettier --write **/*.ts",
+    "format-check": "prettier --check **/*.ts",
+    "lint": "eslint src/**/*.ts",
+    "pack": "ncc build",
+    "test": "jest",
+    "all": "npm run build && npm run format && npm run lint && npm run pack && npm test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MasterworksIO/action-wake-up-ec2-runners.git"
+  },
+  "keywords": [
+    "actions",
+    "node",
+    "aws",
+    "ec2",
+    "scaling",
+    "runner"
+  ],
+  "author": "Masterworks",
+  "license": "MIT",
+  "dependencies": {
+    "@actions/core": "^1.2.4",
+    "aws-sdk": "^2.707.0",
+    "loglevel": "^1.6.7"
+  },
+  "devDependencies": {
+    "@stefanmaric/eslint-config-munchies-base": "^0.2.0",
+    "@stefanmaric/eslint-config-munchies-gourmet": "^0.2.0",
+    "@stefanmaric/eslint-config-munchies-modern": "^0.2.0",
+    "@stefanmaric/eslint-config-munchies-modules": "^0.2.0",
+    "@stefanmaric/eslint-config-munchies-node": "^0.2.0",
+    "@types/jest": "^26.0.3",
+    "@types/node": "^14.0.14",
+    "@typescript-eslint/eslint-plugin": "^3.5.0",
+    "@typescript-eslint/parser": "^3.5.0",
+    "@zeit/ncc": "^0.22.3",
+    "eslint": "^7.3.1",
+    "eslint-plugin-import": "^2.22.0",
+    "eslint-plugin-jest": "^23.17.1",
+    "eslint-plugin-node": "^11.1.0",
+    "jest": "^26.1.0",
+    "jest-circus": "^26.1.0",
+    "js-yaml": "^3.14.0",
+    "prettier": "^2.0.5",
+    "ts-jest": "^26.1.1",
+    "typescript": "^3.9.5"
+  }
+}
