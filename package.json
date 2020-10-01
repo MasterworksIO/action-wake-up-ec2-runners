@@ -31,7 +31,7 @@
   "author": "Masterworks",
   "license": "MIT",
   "dependencies": {
-    "@actions/core": "^1.2.4",
+    "@actions/core": "^1.2.6",
     "aws-sdk": "^2.707.0",
     "loglevel": "^1.6.7"
   },
