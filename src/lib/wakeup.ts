@@ -22,7 +22,7 @@ function shuffle<T>(arr: T[]): T[] {
   return copy
 }
 
-function wait<T>(ms: number, x?: T): Promise<T> {
+function wait<T>(ms: number, x?: T): Promise<T | undefined> {
   return new Promise((resolve) => setTimeout(() => resolve(x), ms))
 }
 
