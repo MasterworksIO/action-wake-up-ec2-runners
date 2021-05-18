@@ -34,7 +34,7 @@ async function run() {
         };
         log_1.objectDebug('options', options);
         if (options.awsRegion) {
-            log_1.default.info(`wakeup: overrinding AWS Region to use ${options.awsRegion}`);
+            log_1.default.info(`wakeup: overriding AWS Region to use ${options.awsRegion}`);
             aws_sdk_1.default.config.update({ region: options.awsRegion });
         }
         const { default: wakeup } = await Promise.resolve().then(() => __importStar(require('./lib/wakeup')));
