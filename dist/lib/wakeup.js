@@ -57,30 +57,16 @@ async function getInstances(tags) {
     log_1.objectDebug('Reservations', Reservations);
     return Reservations.map(({ Instances }) => Instances !== null && Instances !== void 0 ? Instances : []).flat();
 }
-async function start(instances, retries = 5) {
-    try {
-        const InstanceIds = instances.map((instance) => instance.InstanceId);
-        const { StartingInstances } = await ec2.startInstances({ InstanceIds }).promise();
-        return StartingInstances !== null && StartingInstances !== void 0 ? StartingInstances : [];
-    }
-    catch (err) {
-        if (err.code === 'IncorrectSpotRequestState') {
-            if (retries) {
-                log_1.default.warn(`CI start: some spot instances are not ready, retrying in 3sec...`);
-                await wait(3000);
-                return start(instances, retries - 1);
-            }
-            log_1.default.error(`CI start: Couldn't get spot instance to start`);
-            throw err;
-        }
-        throw err;
-    }
+async function start(instances) {
+    const InstanceIds = instances.map((instance) => instance.InstanceId);
+    const { StartingInstances } = await ec2.startInstances({ InstanceIds }).promise();
+    return StartingInstances !== null && StartingInstances !== void 0 ? StartingInstances : [];
 }
-async function wakeup({ tags, concurrency, }) {
+async function wakeup({ tags, concurrency }, retries = 5) {
     var _a;
     const instances = await getInstances(tags);
     log_1.objectDebug('instances', instances);
-    const { running = [], stopped = [], pending = [] } = instances.reduce((acc, instance) => {
+    const { running = [], stopped = [], pending = [], } = instances.reduce((acc, instance) => {
         var _a, _b;
         const key = (_b = (_a = instance === null || instance === void 0 ? void 0 : instance.State) === null || _a === void 0 ? void 0 : _a.Name) !== null && _b !== void 0 ? _b : 'unknown';
         if (acc[key]) {
@@ -157,7 +143,22 @@ async function wakeup({ tags, concurrency, }) {
         'wakeup: starting the following instances',
         ...toStartInstances.map(({ InstanceId }) => `    ${InstanceId}`),
     ].join('\n'));
-    const startingInstances = (_a = (await start(toStartInstances))) !== null && _a !== void 0 ? _a : [];
+    let startingInstances = [];
+    try {
+        startingInstances = (_a = (await start(toStartInstances))) !== null && _a !== void 0 ? _a : [];
+    }
+    catch (err) {
+        if (err.code === 'IncorrectSpotRequestState') {
+            if (retries) {
+                log_1.default.warn(`wakeup: some spot instances are not ready, retrying in 3sec...`);
+                await wait(3000);
+                return wakeup({ tags, concurrency }, retries - 1);
+            }
+            log_1.default.error(`wakeup: Couldn't get spot instances to start`);
+            throw err;
+        }
+        throw err;
+    }
     log_1.default.info([
         'wakeup: request sent',
         ...startingInstances.map(({ CurrentState, InstanceId }) => { var _a; return `    ${InstanceId}: ${(_a = CurrentState === null || CurrentState === void 0 ? void 0 : CurrentState.Name) !== null && _a !== void 0 ? _a : 'unknown'}`; }),
