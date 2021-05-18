@@ -48,26 +48,11 @@ async function getInstances(tags: Record<string, string>): Promise<Instance[]> {
   return Reservations.map(({ Instances }) => Instances ?? []).flat()
 }
 
-async function start(instances: Instance[], retries = 5): Promise<InstanceStateChangeList> {
-  try {
-    const InstanceIds = instances.map((instance) => instance.InstanceId as string)
-    const { StartingInstances } = await ec2.startInstances({ InstanceIds }).promise()
+async function start(instances: Instance[]): Promise<InstanceStateChangeList> {
+  const InstanceIds = instances.map((instance) => instance.InstanceId as string)
+  const { StartingInstances } = await ec2.startInstances({ InstanceIds }).promise()
 
-    return StartingInstances ?? []
-  } catch (err) {
-    if (err.code === 'IncorrectSpotRequestState') {
-      if (retries) {
-        log.warn(`CI start: some spot instances are not ready, retrying in 3sec...`)
-        await wait(3000)
-        return start(instances, retries - 1)
-      }
-
-      log.error(`CI start: Couldn't get spot instance to start`)
-      throw err
-    }
-
-    throw err
-  }
+  return StartingInstances ?? []
 }
 
 type WakeupOptions = {
@@ -82,28 +67,29 @@ type InstanceCPUUsageLimits = {
   min: number
 }
 
-export default async function wakeup({
-  tags,
-  concurrency,
-}: WakeupOptions): Promise<InstanceStateChangeList> {
+export default async function wakeup(
+  { tags, concurrency }: WakeupOptions,
+  retries = 5
+): Promise<InstanceStateChangeList> {
   const instances = await getInstances(tags)
 
   objectDebug('instances', instances)
 
-  const { running = [], stopped = [], pending = [] } = instances.reduce(
-    (acc: GroupedInstances, instance: Instance): GroupedInstances => {
-      const key = instance?.State?.Name ?? 'unknown'
+  const {
+    running = [],
+    stopped = [],
+    pending = [],
+  } = instances.reduce((acc: GroupedInstances, instance: Instance): GroupedInstances => {
+    const key = instance?.State?.Name ?? 'unknown'
 
-      if (acc[key]) {
-        acc[key].push(instance)
-      } else {
-        acc[key] = [instance]
-      }
+    if (acc[key]) {
+      acc[key].push(instance)
+    } else {
+      acc[key] = [instance]
+    }
 
-      return acc
-    },
-    {}
-  )
+    return acc
+  }, {})
 
   log.info(
     [
@@ -198,7 +184,24 @@ export default async function wakeup({
     ].join('\n')
   )
 
-  const startingInstances = (await start(toStartInstances)) ?? []
+  let startingInstances = []
+
+  try {
+    startingInstances = (await start(toStartInstances)) ?? []
+  } catch (err) {
+    if (err.code === 'IncorrectSpotRequestState') {
+      if (retries) {
+        log.warn(`wakeup: some spot instances are not ready, retrying in 3sec...`)
+        await wait(3000)
+        return wakeup({ tags, concurrency }, retries - 1)
+      }
+
+      log.error(`wakeup: Couldn't get spot instances to start`)
+      throw err
+    }
+
+    throw err
+  }
 
   log.info(
     [
