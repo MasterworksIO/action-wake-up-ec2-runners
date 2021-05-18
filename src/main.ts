@@ -14,7 +14,7 @@ async function run(): Promise<void> {
     objectDebug('options', options)
 
     if (options.awsRegion) {
-      log.info(`wakeup: overrinding AWS Region to use ${options.awsRegion}`)
+      log.info(`wakeup: overriding AWS Region to use ${options.awsRegion}`)
       AWS.config.update({ region: options.awsRegion })
     }
 
