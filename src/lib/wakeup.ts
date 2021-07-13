@@ -193,7 +193,7 @@ export default async function wakeup(
       if (retries) {
         log.warn(`wakeup: some spot instances are not ready, retrying in 3sec...`)
         await wait(3000)
-        return wakeup({ tags, concurrency }, retries - 1)
+        return wakeup({ tags, concurrency, retries: retries - 1 })
       }
 
       log.error(`wakeup: Couldn't get spot instances to start`)
