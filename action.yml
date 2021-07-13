@@ -5,6 +5,10 @@ inputs:
     description: 'Override AWS Region to search for EC2 instances'
   concurrency:
     description: 'How many concurrent job runners does this workflow need'
+  retries:
+    description: 'How many times to retry if instances current state blocks the workflow'
+    default: '5'
+    required: false
   tags:
     description: 'JSON Serialized object with <tagname>:<tagvalue> pairs'
 runs:

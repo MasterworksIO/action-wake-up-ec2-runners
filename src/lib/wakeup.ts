@@ -58,6 +58,7 @@ async function start(instances: Instance[]): Promise<InstanceStateChangeList> {
 type WakeupOptions = {
   tags: Record<string, string>
   concurrency: number
+  retries: number
 }
 
 type GroupedInstances = Record<string, Instance[]>
@@ -68,8 +69,7 @@ type InstanceCPUUsageLimits = {
 }
 
 export default async function wakeup(
-  { tags, concurrency }: WakeupOptions,
-  retries = 5
+  { tags, concurrency, retries }: WakeupOptions,
 ): Promise<InstanceStateChangeList> {
   const instances = await getInstances(tags)
 
