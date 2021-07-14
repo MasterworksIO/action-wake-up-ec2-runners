@@ -7,6 +7,7 @@ async function run(): Promise<void> {
   try {
     const options = {
       concurrency: Number.parseInt(core.getInput('concurrency') || '1', 10),
+      retries: Number.parseInt(core.getInput('retries') || '5', 10),
       tags: JSON.parse(core.getInput('tags') || '{}'),
       awsRegion: core.getInput('aws-region'),
     }
