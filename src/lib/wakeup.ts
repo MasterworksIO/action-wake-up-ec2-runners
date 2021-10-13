@@ -1,10 +1,14 @@
 import AWS from 'aws-sdk'
-import { Instance, InstanceStateChangeList, FilterList } from 'aws-sdk/clients/ec2'
+import type { Instance, InstanceStateChangeList, FilterList } from 'aws-sdk/clients/ec2'
 
 import log, { objectDebug } from './log'
 
 const cw = new AWS.CloudWatch({ apiVersion: '2010-08-01' })
 const ec2 = new AWS.EC2({ apiVersion: '2016-11-15' })
+
+function isObject(value: unknown): value is Record<PropertyKey, unknown> {
+  return typeof value === 'object' && value !== null
+}
 
 function swap<T>(arr: T[], i: number, j: number): T[] {
   [arr[i], arr[j]] = [arr[j], arr[i]]
@@ -22,7 +26,7 @@ function shuffle<T>(arr: T[]): T[] {
   return copy
 }
 
-function wait<T>(ms: number, x?: T): Promise<T | undefined> {
+async function wait<T>(ms: number, x?: T): Promise<T | undefined> {
   return new Promise((resolve) => setTimeout(() => resolve(x), ms))
 }
 
@@ -80,9 +84,9 @@ export default async function wakeup(
     stopped = [],
     pending = [],
   } = instances.reduce((acc: GroupedInstances, instance: Instance): GroupedInstances => {
-    const key = instance?.State?.Name ?? 'unknown'
+    const key = instance.State?.Name ?? 'unknown'
 
-    if (acc[key]) {
+    if (Array.isArray(acc[key])) {
       acc[key].push(instance)
     } else {
       acc[key] = [instance]
@@ -101,7 +105,7 @@ export default async function wakeup(
   )
 
   const usage = await Promise.all(
-    running.map((instance) =>
+    running.map(async (instance) =>
       cw
         .getMetricStatistics(
           {
@@ -152,7 +156,7 @@ export default async function wakeup(
 
       return acc
     },
-    { busy: [], idle: [] } as GroupedInstances
+    { busy: [], idle: [] }
   )
 
   if (running.length) {
@@ -187,9 +191,9 @@ export default async function wakeup(
   let startingInstances = []
 
   try {
-    startingInstances = (await start(toStartInstances)) ?? []
-  } catch (err) {
-    if (err.code === 'IncorrectSpotRequestState') {
+    startingInstances = await start(toStartInstances)
+  } catch (err: unknown) {
+    if (isObject(err) && err.code === 'IncorrectSpotRequestState') {
       if (retries) {
         log.warn(`wakeup: some spot instances are not ready, retrying in 3sec...`)
         await wait(3000)
@@ -197,7 +201,6 @@ export default async function wakeup(
       }
 
       log.error(`wakeup: Couldn't get spot instances to start`)
-      throw err
     }
 
     throw err
