@@ -10,6 +10,7 @@ You will first need to create a new IAM Policy on AWS' dashboard with the follow
 
 ```
 ec2:DescribeInstances
+ec2:DescribeRegions
 ec2:StartInstances
 cloudwatch:GetMetricStatistics
 ```
