@@ -1,6 +1,7 @@
 import * as core from '@actions/core'
 
 import { objectDebug } from './lib/log'
+import wakeup from './lib/wakeup'
 
 type ActionOptions = {
   concurrency: number
@@ -23,8 +24,6 @@ async function run(): Promise<void> {
     } as ActionOptions
 
     objectDebug('options', options)
-
-    const { default: wakeup } = await import('./lib/wakeup')
 
     await wakeup(options)
   } catch (error: unknown) {
