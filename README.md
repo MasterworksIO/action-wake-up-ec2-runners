@@ -10,6 +10,7 @@ You will first need to create a new IAM Policy on AWS' dashboard with the follow
 
 ```
 ec2:DescribeInstances
+ec2:DescribeRegions
 ec2:StartInstances
 cloudwatch:GetMetricStatistics
 ```
@@ -28,9 +29,9 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
       - uses: MasterworksIO/action-wake-up-ec2-runners@master
         with:
-          aws-region: us-east-2
           concurrency: 4
           tags: { "MyCustomAWSTag": "github-action-runner" }
 ```

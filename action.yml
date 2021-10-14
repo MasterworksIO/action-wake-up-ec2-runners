@@ -2,15 +2,22 @@ name: 'wake-up-ec2-runners'
 description: 'A Github Action to wake up AWS EC2 runners'
 inputs:
   aws-region:
+    default: ''
+    deprecationMessage: 'wake-up-ec2-runners is now multi-region by default, use tags to narrow instance selection'
     description: 'Override AWS Region to search for EC2 instances'
+    required: false
   concurrency:
+    default: '1'
     description: 'How many concurrent job runners does this workflow need'
+    required: false
   retries:
-    description: 'How many times to retry if instances current state blocks the workflow'
     default: '5'
+    description: 'How many times to retry if instances current state blocks the workflow'
     required: false
   tags:
+    default: ''
     description: 'JSON Serialized object with <tagname>:<tagvalue> pairs'
+    required: false
 runs:
   using: 'node12'
   main: 'dist/index.js'
