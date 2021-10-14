@@ -30,7 +30,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       - uses: MasterworksIO/action-wake-up-ec2-runners@master
         with:
-          aws-region: us-east-2
           concurrency: 4
           tags: { "MyCustomAWSTag": "github-action-runner" }
 ```
