@@ -32,7 +32,8 @@
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.6.0",
-    "aws-sdk": "^2.1006.0",
+    "@aws-sdk/client-cloudwatch": "^3.36.1",
+    "@aws-sdk/client-ec2": "^3.36.1",
     "loglevel": "^1.7.1"
   },
   "prettier": "@masterworks/eslint-config-masterworks/prettier",

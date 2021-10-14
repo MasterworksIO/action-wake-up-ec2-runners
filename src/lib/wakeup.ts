@@ -1,10 +1,13 @@
-import AWS from 'aws-sdk'
-import type { Instance, InstanceStateChangeList, FilterList } from 'aws-sdk/clients/ec2'
+import type { Instance, Filter, InstanceStateChange } from '@aws-sdk/client-ec2'
+import {
+  EC2Client,
+  DescribeInstancesCommand,
+  StartInstancesCommand,
+  DescribeRegionsCommand,
+} from '@aws-sdk/client-ec2'
+import { CloudWatchClient, GetMetricStatisticsCommand } from '@aws-sdk/client-cloudwatch'
 
 import log, { objectDebug } from './log'
-
-const cw = new AWS.CloudWatch({ apiVersion: '2010-08-01' })
-const ec2 = new AWS.EC2({ apiVersion: '2016-11-15' })
 
 function isObject(value: unknown): value is Record<PropertyKey, unknown> {
   return typeof value === 'object' && value !== null
@@ -31,32 +34,56 @@ async function wait<T>(ms: number, x?: T): Promise<T | undefined> {
 }
 
 async function getInstances(tags: Record<string, string>): Promise<Instance[]> {
-  const Filters: FilterList = Object.entries(tags).map(([key, val]) => ({
+  const instances: Instance[] = []
+
+  const Filters: Filter[] = Object.entries(tags).map(([key, val]) => ({
     Name: `tag:${key}`,
     Values: val.split(','),
   }))
 
   objectDebug('filters', Filters)
 
-  // AWS SDK throws if Filters is an empty array or empty object is set as options.
-  const { Reservations } = Filters.length
-    ? await ec2.describeInstances({ Filters }).promise()
-    : await ec2.describeInstances().promise()
+  const { Regions } = await new EC2Client({}).send(new DescribeRegionsCommand({}))
 
-  if (Reservations === undefined) {
-    return []
+  if (!Regions) {
+    log.info(`No regions found for the configured account`)
+    return instances
   }
 
-  objectDebug('Reservations', Reservations)
+  objectDebug('regions', Regions)
 
-  return Reservations.map(({ Instances }) => Instances ?? []).flat()
+  const reservations = (
+    await Promise.all(
+      Regions.map(async ({ RegionName }) => {
+        const { Reservations } = await new EC2Client({ region: RegionName }).send(
+          new DescribeInstancesCommand({ Filters })
+        )
+
+        if (Reservations?.length) {
+          objectDebug(`${RegionName} reservations`, Reservations)
+          return Reservations
+        }
+
+        log.info(`No reservations found in ${RegionName}`)
+
+        return []
+      })
+    )
+  ).flat()
+
+  return reservations.map(({ Instances }) => Instances ?? []).flat()
 }
 
-async function start(instances: Instance[]): Promise<InstanceStateChangeList> {
-  const InstanceIds = instances.map((instance) => instance.InstanceId as string)
-  const { StartingInstances } = await ec2.startInstances({ InstanceIds }).promise()
+async function start(instances: Instance[]): Promise<InstanceStateChange[]> {
+  const requests = instances.map(async ({ InstanceId, Placement }) =>
+    new EC2Client({ region: Placement?.AvailabilityZone?.slice(0, -1) }).send(
+      new StartInstancesCommand({ InstanceIds: [String(InstanceId)] })
+    )
+  )
 
-  return StartingInstances ?? []
+  return (await Promise.all(requests))
+    .map(({ StartingInstances }) => StartingInstances ?? [])
+    .flat()
 }
 
 type WakeupOptions = {
@@ -72,9 +99,16 @@ type InstanceCPUUsageLimits = {
   min: number
 }
 
-export default async function wakeup(
-  { tags, concurrency, retries }: WakeupOptions,
-): Promise<InstanceStateChangeList> {
+const TRANSIENT_ERRORS: Readonly<string[]> = [
+  'IncorrectSpotRequestState',
+  'InsufficientInstanceCapacity',
+] as const
+
+export default async function wakeup({
+  tags,
+  concurrency,
+  retries,
+}: WakeupOptions): Promise<InstanceStateChange[]> {
   const instances = await getInstances(tags)
 
   objectDebug('instances', instances)
@@ -105,45 +139,45 @@ export default async function wakeup(
   )
 
   const usage = await Promise.all(
-    running.map(async (instance) =>
-      cw
-        .getMetricStatistics(
-          {
-            Namespace: 'AWS/EC2',
-            MetricName: 'CPUUtilization',
-            Dimensions: [
-              {
-                Name: 'InstanceId',
-                Value: String(instance.InstanceId),
-              },
-            ],
-            Period: 1,
-            StartTime: new Date(Date.now() - 300e3),
-            EndTime: new Date(Date.now()),
-            Statistics: ['Maximum'],
-          },
-          undefined
-        )
-        .promise()
-        .then(({ Datapoints = [] }) => {
-          objectDebug('DataPoints', Datapoints)
+    running.map(async (instance) => {
+      const cw = new CloudWatchClient({
+        region: instance.Placement?.AvailabilityZone?.slice(0, -1),
+      })
 
-          const instanceUsage: InstanceCPUUsageLimits = Datapoints.length
-            ? Datapoints.reduce(
-                (acc: InstanceCPUUsageLimits, point) => ({
-                  max: Math.max(acc.max, point.Maximum ?? acc.max),
-                  min: Math.min(acc.min, point.Maximum ?? acc.min),
-                }),
-                { min: Infinity, max: -Infinity }
-              )
-            : { min: 0, max: 100 }
-
-          return {
-            instance,
-            ...instanceUsage,
-          }
+      const { Datapoints = [] } = await cw.send(
+        new GetMetricStatisticsCommand({
+          Namespace: 'AWS/EC2',
+          MetricName: 'CPUUtilization',
+          Dimensions: [
+            {
+              Name: 'InstanceId',
+              Value: String(instance.InstanceId),
+            },
+          ],
+          Period: 1,
+          StartTime: new Date(Date.now() - 300e3),
+          EndTime: new Date(Date.now()),
+          Statistics: ['Maximum'],
         })
-    )
+      )
+
+      objectDebug('DataPoints', { InstanceId: instance.InstanceId, Datapoints })
+
+      const instanceUsage: InstanceCPUUsageLimits = Datapoints.length
+        ? Datapoints.reduce(
+            (acc: InstanceCPUUsageLimits, point) => ({
+              max: Math.max(acc.max, point.Maximum ?? acc.max),
+              min: Math.min(acc.min, point.Maximum ?? acc.min),
+            }),
+            { min: Infinity, max: -Infinity }
+          )
+        : { min: 0, max: 100 }
+
+      return {
+        instance,
+        ...instanceUsage,
+      }
+    })
   )
 
   const { busy, idle }: GroupedInstances = usage.reduce(
@@ -161,21 +195,22 @@ export default async function wakeup(
 
   if (running.length) {
     log.info(
-      `wakeup: out of the running instances, ${busy.length} are busy and ${idle.length} are idle`
+      `wakeup: out of the ${running.length} running instances, ${busy.length} are busy and ${idle.length} are idle`
     )
   }
 
   const availableCount = idle.length + pending.length
   const deficitCount = Math.max(0, concurrency - availableCount)
+  let startingInstances: InstanceStateChange[] = []
 
   if (!deficitCount) {
     log.info('wakeup: concurrency requirements met, nothing to do')
-    return []
+    return startingInstances
   }
 
   if (!stopped.length) {
     log.warn('wakeup: there are no more available runners, nothing to do')
-    return []
+    return startingInstances
   }
 
   const queueCount = Math.min(stopped.length, deficitCount)
@@ -188,19 +223,19 @@ export default async function wakeup(
     ].join('\n')
   )
 
-  let startingInstances = []
-
   try {
     startingInstances = await start(toStartInstances)
   } catch (err: unknown) {
-    if (isObject(err) && err.code === 'IncorrectSpotRequestState') {
-      if (retries) {
-        log.warn(`wakeup: some spot instances are not ready, retrying in 3sec...`)
-        await wait(3000)
-        return wakeup({ tags, concurrency, retries: retries - 1 })
-      }
+    if (isObject(err)) {
+      if (TRANSIENT_ERRORS.includes(err.Code as string)) {
+        if (retries) {
+          log.warn(`wakeup: some spot instances are not ready, retrying in 10sec...`)
+          await wait(10000)
+          return wakeup({ tags, concurrency, retries: retries - 1 })
+        }
 
-      log.error(`wakeup: Couldn't get spot instances to start`)
+        log.error(`wakeup: Couldn't get spot instances to cover desired concurrency capacity`)
+      }
     }
 
     throw err
