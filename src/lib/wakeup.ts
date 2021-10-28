@@ -154,8 +154,8 @@ export default async function wakeup({
               Value: String(instance.InstanceId),
             },
           ],
-          Period: 1,
-          StartTime: new Date(Date.now() - 300e3),
+          Period: 60,
+          StartTime: new Date(Date.now() - 60e3),
           EndTime: new Date(Date.now()),
           Statistics: ['Maximum'],
         })
