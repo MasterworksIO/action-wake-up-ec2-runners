@@ -201,6 +201,7 @@ export default async function wakeup({
     )
   }
 
+  // Assume pending (i.e. booting up) instances will be available to run jobs pretty soon.
   const availableCount = idle.length + pending.length
   const deficitCount = Math.max(0, concurrency - availableCount)
   let startingInstances: InstanceStateChange[] = []

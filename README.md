@@ -17,6 +17,8 @@ cloudwatch:GetMetricStatistics
 
 Assign that policy to a new user, which should be specific for this action, and create an access key and secret pair.
 
+For the action to be able to Categorize your instances between idle or busy, you need to [enable Detailed Monitoring](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-cloudwatch-new.html) on all of them. If not enabled, all your instance will be considered idle, which might make you under-staffed.
+
 ## Usage
 
 ```yaml
