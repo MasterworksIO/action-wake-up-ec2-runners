@@ -154,8 +154,8 @@ export default async function wakeup({
               Value: String(instance.InstanceId),
             },
           ],
-          Period: 1,
-          StartTime: new Date(Date.now() - 300e3),
+          Period: 60,
+          StartTime: new Date(Date.now() - 60e3),
           EndTime: new Date(Date.now()),
           Statistics: ['Maximum'],
         })
@@ -163,6 +163,8 @@ export default async function wakeup({
 
       objectDebug('DataPoints', { InstanceId: instance.InstanceId, Datapoints })
 
+      // If there are no metrics for this given instance, assume it is idle with a 0% MAX usage, as
+      // missing data probably means the instance just woke up from a long sleep.
       const instanceUsage: InstanceCPUUsageLimits = Datapoints.length
         ? Datapoints.reduce(
             (acc: InstanceCPUUsageLimits, point) => ({
@@ -171,7 +173,7 @@ export default async function wakeup({
             }),
             { min: Infinity, max: -Infinity }
           )
-        : { min: 0, max: 100 }
+        : { min: 0, max: 0 }
 
       return {
         instance,
@@ -199,6 +201,7 @@ export default async function wakeup({
     )
   }
 
+  // Assume pending (i.e. booting up) instances will be available to run jobs pretty soon.
   const availableCount = idle.length + pending.length
   const deficitCount = Math.max(0, concurrency - availableCount)
   let startingInstances: InstanceStateChange[] = []
