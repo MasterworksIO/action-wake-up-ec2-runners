@@ -9,10 +9,21 @@ It will list EC2 instances, grouping them by their status and their CPU Usage to
 You will first need to create a new IAM Policy on AWS' dashboard with the following rules:
 
 ```
-ec2:DescribeInstances
-ec2:DescribeRegions
-ec2:StartInstances
-cloudwatch:GetMetricStatistics
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DescribeInstances",
+                "ec2:StartInstances",
+                "ec2:DescribeRegions",
+                "cloudwatch:GetMetricStatistics"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
 ```
 
 Assign that policy to a new user, which should be specific for this action, and create an access key and secret pair.
