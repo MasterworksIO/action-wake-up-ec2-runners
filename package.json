@@ -1,6 +1,6 @@
 {
   "name": "action-wake-up-ec2-runners",
-  "version": "0.1.0",
+  "version": "2.0.0",
   "private": true,
   "description": "A Github Action to wake up AWS EC2 runners",
   "main": "dist/main.js",
