@@ -19,5 +19,5 @@ inputs:
     description: 'JSON Serialized object with <tagname>:<tagvalue> pairs'
     required: false
 runs:
-  using: 'node12'
-  main: 'dist/index.js'
+  using: 'node16'
+  main: 'dist/main.js'
